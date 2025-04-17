@@ -15,11 +15,12 @@ interface Session {
 // Disable SSL verification for local development
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-export const checkUpcomingSessions = async (): Promise<void> => {
+export const checkUpcomingSessions = async (): Promise<Session[]> => {
   try {
     console.log('Checking upcoming sessions...');
     const sessions = await getAllSessions();
     const now = new Date();
+    if (sessions.length === 0) return [];
 
     // Find sessions in the next week that we should notify about
     const upcomingSessions = sessions.filter(session => {
@@ -79,8 +80,9 @@ Would you like me to automatically register you when the buy window opens? (Repl
     ].join('\n');
     
     await sendMessage(errorMessage);
-    throw error;
+    return [];
   }
+  return [];
 };
 
 export const getAllSessions = async (): Promise<Session[]> => {
