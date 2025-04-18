@@ -119,7 +119,11 @@ bot.command('sessions', async (ctx) => {
     ...sortedSessions.slice(0, 5).map((session, index) => {
       const sessionDate = new Date(session.SessionDate);
       const buyWindowDate = new Date(sessionDate);
+      // Set to 9:24 AM PST on the day before BuyDayMinimum
       buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      buyWindowDate.setHours(9, 24, 0, 0);
+      // Convert from UTC to PST
+      buyWindowDate.setHours(buyWindowDate.getHours() - 7);
       
       // Store session ID for this number
       const optionNumber = index + 1;
