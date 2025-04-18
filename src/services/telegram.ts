@@ -236,6 +236,7 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
   const sessionDate = new Date(selectedSession.SessionDate);
   const buyWindowDate = new Date(sessionDate);
   buyWindowDate.setDate(buyWindowDate.getDate() - selectedSession.BuyDayMinimum);
+  buyWindowDate.setHours(9, 24, 0, 0);
 
   global.pendingRegistrations[sessionId] = {
     sessionDate: selectedSession.SessionDate,
@@ -243,7 +244,19 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
     cost: selectedSession.Cost
   };
 
-  await ctx.reply(`✅ Great! I will automatically try to register you when the buy window opens on ${buyWindowDate.toLocaleString()}.`);
+  const confirmationMessage = [
+    '✅ Session added to registration queue!',
+    '',
+    '📋 Details:',
+    `🏒 Session: ${selectedSession.Note}`,
+    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`,
+    `💰 Cost: $${selectedSession.Cost}`,
+    `⏰ Will auto-register at: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
+    '',
+    '🔔 I will send you a notification when registration is complete!'
+  ].join('\n');
+
+  await ctx.reply(confirmationMessage);
   global.pendingConfirmation = undefined;
 });
 
