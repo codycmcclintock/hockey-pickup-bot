@@ -27,6 +27,8 @@ export const checkUpcomingSessions = async (): Promise<Session[]> => {
       const sessionDate = new Date(session.SessionDate);
       const buyWindowDate = new Date(sessionDate);
       buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      // Set buy window to 9:24 AM PST
+      buyWindowDate.setHours(9, 24, 0, 0);
 
       // Check if the session is in the future and the buy window is approaching
       const isInFuture = sessionDate > now;
@@ -41,6 +43,8 @@ export const checkUpcomingSessions = async (): Promise<Session[]> => {
       const sessionDate = new Date(session.SessionDate);
       const buyWindowDate = new Date(sessionDate);
       buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      // Set buy window to 9:24 AM PST
+      buyWindowDate.setHours(9, 24, 0, 0);
 
       const daysUntilBuyWindow = Math.floor((buyWindowDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
