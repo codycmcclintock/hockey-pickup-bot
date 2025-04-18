@@ -129,9 +129,6 @@ bot.command('sessions', async (ctx) => {
       const optionNumber = index + 1;
       lastShownSessions[optionNumber.toString()] = session.SessionId;
 
-      // Create session URL
-      const sessionUrl = `https://localhost:5174/sessions/${session.SessionId}`;
-
       // Format dates with PST timezone
       const dateFormatter = new Intl.DateTimeFormat('en-US', {
         timeZone: 'America/Los_Angeles',
@@ -139,11 +136,10 @@ bot.command('sessions', async (ctx) => {
         timeStyle: 'short'
       });
 
-      return `${optionNumber}. [🏒 Hockey Session](${sessionUrl})\n` +
+      return `${index + 1}. 🏒 ${session.Note}\n` +
         `📅 Date: ${dateFormatter.format(sessionDate)}\n` +
-        `📝 Note: ${session.Note || 'No note'}\n` +
         `💰 Cost: $${session.Cost}\n` +
-        `⏰ Buy Window Opens: ${dateFormatter.format(buyWindowDate)} PST\n\n`;
+        `⏰ Buy Window Opens: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n\n`;
     }),
     '\nTo register for a session, reply with the session number (e.g. "1", "2", etc).'
   ].join('');
@@ -184,15 +180,7 @@ bot.hears(/^[0-9]+$/, async (ctx) => {
   const sessionUrl = `https://localhost:5174/sessions/${selectedSession.SessionId}`;
 
   // Format dates with PST timezone
-  const dateFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+
 
   const now = new Date();
   const buyWindowOpen = buyWindowDate <= now;
@@ -200,9 +188,9 @@ bot.hears(/^[0-9]+$/, async (ctx) => {
   const message = [
     '*Would you like me to register you for:*\n',
     `[🏒 View Session Details](${sessionUrl})\n`,
-    `📅 Date: ${dateFormatter.format(sessionDate)}\n`,
+    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n`,
     `💰 Cost: $${selectedSession.Cost}\n`,
-    buyWindowOpen ? '✅ Buy Window: OPEN NOW!\n' : `⏰ Buy Window Opens: ${dateFormatter.format(buyWindowDate)} PST\n`,
+    `⏰ Buy Window Opens: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
     buyWindowOpen ? '\nI\'ll try to register you immediately!' : '\nI\'ll auto-register when the window opens!',
     '\nReply with "yes" or "no"'
   ].join('');
