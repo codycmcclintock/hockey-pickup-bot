@@ -16,6 +16,7 @@ interface Session {
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 export const checkUpcomingSessions = async (): Promise<Session[]> => {
+  await sendMessage('🔍 Checking for upcoming sessions...', false);
   try {
     console.log('Checking upcoming sessions...');
     const sessions = await getAllSessions();
@@ -150,6 +151,11 @@ export const getAllSessions = async (): Promise<Session[]> => {
     }
 
     console.log('Found future sessions:', futureSessions);
+    if (futureSessions.length === 0) {
+      await sendMessage('ℹ️ No upcoming sessions found');
+    } else {
+      await sendMessage(`✅ Found ${futureSessions.length} upcoming sessions!`);
+    }
     return futureSessions;
   } catch (error) {
     console.error('Error fetching sessions:', error);
@@ -167,6 +173,7 @@ export const formatSessionMessage = (session: Session): string => {
 };
 
 export const registerForSession = async (sessionId: number): Promise<void> => {
+  await sendMessage('🟡 Starting registration process...', false);
   try {
     console.log('Starting registration process for session:', sessionId);
 
