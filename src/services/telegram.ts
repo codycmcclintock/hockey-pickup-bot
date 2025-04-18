@@ -128,14 +128,12 @@ bot.command('sessions', async (ctx) => {
       lastShownSessions[optionNumber.toString()] = session.SessionId;
 
       // Format dates with PST timezone
-      const dateFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Los_Angeles',
-        dateStyle: 'short',
-        timeStyle: 'short'
-      });
+      // Parse date and adjust for PST
+      const pstDate = new Date(session.SessionDate);
+      pstDate.setUTCHours(pstDate.getUTCHours() - 7); // Convert UTC to PST
 
       return `${index + 1}. 🏒 ${session.Note}\n` +
-        `📅 Date: ${dateFormatter.format(sessionDate)}\n` +
+        `📅 Date: ${pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n` +
         `💰 Cost: $${session.Cost}\n` +
         `⏰ Buy Window Opens: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n\n`;
     }),
@@ -242,12 +240,15 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
     cost: selectedSession.Cost
   };
 
+  // Convert session date from UTC to PST
+  sessionDate.setUTCHours(sessionDate.getUTCHours() - 7);
+
   const confirmationMessage = [
     '✅ Session added to registration queue!',
     '',
     '📋 Details:',
     `🏒 Session: ${selectedSession.Note}`,
-    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`,
+    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
     `💰 Cost: $${selectedSession.Cost}`,
     `⏰ Will auto-register at: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
     '',
