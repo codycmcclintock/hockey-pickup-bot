@@ -128,9 +128,9 @@ bot.command('sessions', async (ctx) => {
       lastShownSessions[optionNumber.toString()] = session.SessionId;
 
       // Format dates with PST timezone
-      // Parse date and adjust for PST
+      // Parse date and set to 7:30 AM PST
       const pstDate = new Date(session.SessionDate);
-      pstDate.setUTCHours(pstDate.getUTCHours() - 7); // Convert UTC to PST
+      pstDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
 
       return `${index + 1}. 🏒 ${session.Note}\n` +
         `📅 Date: ${pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n` +
@@ -240,8 +240,8 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
     cost: selectedSession.Cost
   };
 
-  // Convert session date from UTC to PST
-  sessionDate.setUTCHours(sessionDate.getUTCHours() - 7);
+  // Set to 7:30 AM PST
+  sessionDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
 
   const confirmationMessage = [
     '✅ Session added to registration queue!',
