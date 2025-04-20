@@ -16,6 +16,7 @@
     "graphql": "^16.10.0",
     "graphql-request": "^7.1.2",
     "node-cron": "^3.0.3",
+    "node-schedule": "^2.1.1",
     "pg": "^8.14.1",
     "telegraf": "^4.16.3",
     "ts-node": "^10.9.2",

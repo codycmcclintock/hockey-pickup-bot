@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { getAllSessions, registerForSession } from './session';
 import { addPendingRegistrationPg } from './pendingRegistrationStorePg';
-import { processPendingRegistrations } from './pendingRegistrationProcessor';
+import { scheduleAllPendingRegistrations, scheduleRegistrationJob } from './pendingRegistrationScheduler';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
@@ -244,13 +244,15 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
   buyWindowDate.setHours(9, 24, 0, 0);
 
   // Save to persistent Postgres DB
-  await addPendingRegistrationPg({
+  const reg = {
     sessionId: selectedSession.SessionId,
     sessionDate: selectedSession.SessionDate,
     buyWindowDate: buyWindowDate.toISOString(),
     cost: selectedSession.Cost,
     userId: ctx.message.from.id
-  });
+  };
+  await addPendingRegistrationPg(reg);
+  scheduleRegistrationJob(reg);
 
   // Set to 7:30 AM PST
   sessionDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
@@ -338,8 +340,6 @@ export const startBot = async (): Promise<void> => {
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-  // Start the pending registration processor
-  setInterval(() => {
-    processPendingRegistrations();
-  }, 60 * 1000); // every minute
+  // Schedule all pending registration jobs on startup
+  await scheduleAllPendingRegistrations();
 };
