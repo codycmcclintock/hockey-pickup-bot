@@ -1,5 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { getAllSessions, registerForSession } from './session';
+import { addPendingRegistration } from './pendingRegistrationStore';
+import { processPendingRegistrations } from './pendingRegistrationProcessor';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
@@ -127,13 +129,16 @@ bot.command('sessions', async (ctx) => {
       const optionNumber = index + 1;
       lastShownSessions[optionNumber.toString()] = session.SessionId;
 
-      // Format dates with PST timezone
-      // Parse date and set to 7:30 AM PST
+      // Always show session time as 7:30 AM PST
       const pstDate = new Date(session.SessionDate);
       pstDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
+      // Get day of week abbreviation
+      const dayOfWeek = pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' });
+      // Strip "9/10", "8/10", etc. from session.Note
+      const cleanedNote = session.Note.replace(/\b\d{1,2}\/10\b[., ]*/g, '').trim();
 
-      return `${index + 1}. 🏒 ${session.Note}\n` +
-        `📅 Date: ${pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n` +
+      return `${index + 1}. 🏒 ${cleanedNote}\n` +
+        `📅 Date: ${dayOfWeek}, ${pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n` +
         `💰 Cost: $${session.Cost}\n` +
         `⏰ Buy Window Opens: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST\n\n`;
     }),
@@ -181,10 +186,14 @@ bot.hears(/^[0-9]+$/, async (ctx) => {
   const now = new Date();
   const buyWindowOpen = buyWindowDate <= now;
 
+  // Always show session time as 7:30 AM PST
+  const sessionDatePST = new Date(sessionDate);
+  sessionDatePST.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
+  const formattedSessionDate = `${sessionDatePST.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`;
   const message = [
     '*Would you like me to register you for:*\n',
     `[🏒 View Session Details](${sessionUrl})\n`,
-    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n`,
+    `📅 Date: ${formattedSessionDate}\n`,
     `💰 Cost: $${selectedSession.Cost}\n`,
     `⏰ Buy Window Opens: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
     buyWindowOpen ? '\nI\'ll try to register you immediately!' : '\nI\'ll auto-register when the window opens!',
@@ -228,17 +237,20 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
     return;
   }
 
-  // Otherwise, queue up the registration
+  // Otherwise, queue up the registration in persistent storage
   const sessionDate = new Date(selectedSession.SessionDate);
   const buyWindowDate = new Date(sessionDate);
   buyWindowDate.setDate(buyWindowDate.getDate() - selectedSession.BuyDayMinimum);
   buyWindowDate.setHours(9, 24, 0, 0);
 
-  global.pendingRegistrations[sessionId] = {
+  // Save to persistent file
+  addPendingRegistration({
+    sessionId: selectedSession.SessionId,
     sessionDate: selectedSession.SessionDate,
-    buyWindowDate: buyWindowDate,
-    cost: selectedSession.Cost
-  };
+    buyWindowDate: buyWindowDate.toISOString(),
+    cost: selectedSession.Cost,
+    userId: ctx.message.from.id
+  });
 
   // Set to 7:30 AM PST
   sessionDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
@@ -248,7 +260,12 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
     '',
     '📋 Details:',
     `🏒 Session: ${selectedSession.Note}`,
-    `📅 Date: ${sessionDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
+    // Always show session time as 7:30 AM PST
+    const sessionDatePST = new Date(sessionDate);
+    sessionDatePST.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
+    const formattedSessionDate = `${sessionDatePST.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`;
+
+    `📅 Date: ${formattedSessionDate}`,
     `💰 Cost: $${selectedSession.Cost}`,
     `⏰ Will auto-register at: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
     '',
@@ -321,4 +338,9 @@ export const startBot = async (): Promise<void> => {
   // Enable graceful stop
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+  // Start the pending registration processor
+  setInterval(() => {
+    processPendingRegistrations();
+  }, 60 * 1000); // every minute
 };

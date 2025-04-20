@@ -173,7 +173,7 @@ export const formatSessionMessage = (session: Session): string => {
 };
 
 export const registerForSession = async (sessionId: number): Promise<void> => {
-  await sendMessage('🟡 Starting registration process...', false);
+  await sendMessage('🟡 Trying to secure your spot for this session...', false);
   try {
     console.log('Starting registration process for session:', sessionId);
 
@@ -203,7 +203,12 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
     console.log('Response status:', response.status);
     console.log('Response data:', JSON.stringify(response.data, null, 2));
 
-    // Send the registration result message
+    // Always echo the API response message to the user
+    if (response.data.Message) {
+      await sendMessage(`ℹ️ API Response: ${response.data.Message}`, true);
+    }
+
+    // Send the registration result message (with debug info if needed)
     const debugInfo = [
       response.data.Success ? '✅ Registration Successful!' : '❌ Registration Failed!',
       '',
