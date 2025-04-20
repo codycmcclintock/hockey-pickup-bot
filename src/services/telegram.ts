@@ -255,16 +255,15 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
   // Set to 7:30 AM PST
   sessionDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
 
+  const sessionDatePST = new Date(sessionDate);
+  sessionDatePST.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
+  const formattedSessionDate = `${sessionDatePST.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`;
+
   const confirmationMessage = [
     '✅ Session added to registration queue!',
     '',
     '📋 Details:',
     `🏒 Session: ${selectedSession.Note}`,
-    // Always show session time as 7:30 AM PST
-    const sessionDatePST = new Date(sessionDate);
-    sessionDatePST.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
-    const formattedSessionDate = `${sessionDatePST.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`;
-
     `📅 Date: ${formattedSessionDate}`,
     `💰 Cost: $${selectedSession.Cost}`,
     `⏰ Will auto-register at: ${buyWindowDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} PST`,
