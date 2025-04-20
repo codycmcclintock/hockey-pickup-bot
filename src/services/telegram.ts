@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { getAllSessions, registerForSession } from './session';
-import { addPendingRegistration } from './pendingRegistrationStore';
+import { addPendingRegistrationPg } from './pendingRegistrationStorePg';
 import { processPendingRegistrations } from './pendingRegistrationProcessor';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -243,8 +243,8 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
   buyWindowDate.setDate(buyWindowDate.getDate() - selectedSession.BuyDayMinimum);
   buyWindowDate.setHours(9, 24, 0, 0);
 
-  // Save to persistent file
-  addPendingRegistration({
+  // Save to persistent Postgres DB
+  await addPendingRegistrationPg({
     sessionId: selectedSession.SessionId,
     sessionDate: selectedSession.SessionDate,
     buyWindowDate: buyWindowDate.toISOString(),
