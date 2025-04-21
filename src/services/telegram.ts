@@ -24,14 +24,25 @@ bot.telegram.setMyCommands([
 // Store user responses
 let wantsToRegister = false;
 
-export const sendMessage = async (message: string, useMarkdown: boolean = false): Promise<void> => {
-  if (!process.env.TELEGRAM_CHAT_ID) {
+export const sendMessage = async (
+  message: string,
+  chatIdOrMarkdown?: string | boolean,
+  maybeMarkdown?: boolean
+): Promise<void> => {
+  let chatId: string | undefined = process.env.TELEGRAM_CHAT_ID;
+  let useMarkdown = false;
+  if (typeof chatIdOrMarkdown === 'string') {
+    chatId = chatIdOrMarkdown;
+    useMarkdown = !!maybeMarkdown;
+  } else if (typeof chatIdOrMarkdown === 'boolean') {
+    useMarkdown = chatIdOrMarkdown;
+  }
+  if (!chatId) {
     console.error('No TELEGRAM_CHAT_ID set. Message not sent:', message);
     return;
   }
-  
   try {
-    await bot.telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, message, useMarkdown ? { parse_mode: 'Markdown' } : undefined);
+    await bot.telegram.sendMessage(chatId, message, useMarkdown ? { parse_mode: 'Markdown' } : undefined);
   } catch (error) {
     console.error('Error sending Telegram message:', error);
   }

@@ -247,8 +247,13 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
       `💱 [Pay with PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=codymcclintock41@gmail.com&amount=${session.Cost}&item_name=Hockey%20Session%20${sessionDate}&currency_code=USD)`
     ];
 
+    await sendMessage(`✅ Successfully registered for session ${sessionId}!`, true);
+    // Notify channel if configured
+    if (process.env.TELEGRAM_CHANNEL_ID) {
+      await sendMessage(`Cody used the bot to buy a spot.`, process.env.TELEGRAM_CHANNEL_ID, false);
+    }
+
     const message = [
-      '✅ Successfully registered for the session!',
       '',
       '💰 Payment Options:',
       ...paymentLinks
