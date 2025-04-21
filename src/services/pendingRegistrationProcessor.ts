@@ -1,5 +1,5 @@
 import { registerForSession } from './session';
-import { loadPendingRegistrationsPg, removePendingRegistrationPg, PendingRegistration } from './pendingRegistrationStorePg';
+import { loadPendingRegistrationsPg, removePendingRegistrationPg } from './pendingRegistrationStorePg';
 import { sendMessage } from './telegram';
 
 // This function should be scheduled or called in your main bot loop
