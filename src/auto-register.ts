@@ -129,37 +129,53 @@ cron.schedule('* * * * *', async () => {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find the NEXT Friday session (closest Friday in the future)
-    const fridaySessions = sessions.filter((session: Session) => {
+    // Determine which day to target based on current day
+    const currentDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    let targetDay: number;
+    let targetDayName: string;
+    
+    if (currentDay === 3) { // Wednesday
+      targetDay = 3; // Target next Wednesday
+      targetDayName = 'Wednesday';
+    } else { // Any other day (including Friday)
+      targetDay = 5; // Target next Friday
+      targetDayName = 'Friday';
+    }
+    
+    log(`📅 Current day: ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDay]}`);
+    log(`🎯 Targeting next ${targetDayName} session`);
+    
+    // Find sessions for the target day
+    const targetSessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
       const dayOfWeek = sessionDate.getDay();
-      const isFriday = dayOfWeek === 5; // Friday
+      const isTargetDay = dayOfWeek === targetDay;
       const isFutureSession = sessionDate > now;
-      return isFriday && isFutureSession;
+      return isTargetDay && isFutureSession;
     });
     
-    // Sort by date and get the NEXT Friday (closest one)
-    fridaySessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
-    const nextFridaySession = fridaySessions[0];
+    // Sort by date and get the NEXT session of target day
+    targetSessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
+    const nextTargetSession = targetSessions[0];
     
-    if (!nextFridaySession) {
-      log('ℹ️ No Friday sessions found');
+    if (!nextTargetSession) {
+      log(`ℹ️ No ${targetDayName} sessions found`);
       return;
     }
     
-    const sessionDate = new Date(nextFridaySession.SessionDate);
+    const sessionDate = new Date(nextTargetSession.SessionDate);
     const buyWindowDate = new Date(sessionDate);
-    buyWindowDate.setDate(buyWindowDate.getDate() - nextFridaySession.BuyDayMinimum);
+    buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
     buyWindowDate.setHours(9, 25, 0, 0);
     
     // Check if buy window is open (past 9:25 AM on buy day)
     const isBuyWindowOpen = now >= buyWindowDate;
     
-    log(`🎯 Next Friday session: ${sessionDate.toLocaleDateString()} (ID: ${nextFridaySession.SessionId})`);
+    log(`🎯 Next ${targetDayName} session: ${sessionDate.toLocaleDateString()} (ID: ${nextTargetSession.SessionId})`);
     log(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
     log(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
     
-    const availableSessions = isBuyWindowOpen ? [nextFridaySession] : [];
+    const availableSessions = isBuyWindowOpen ? [nextTargetSession] : [];
     
     if (availableSessions.length > 0) {
       log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
