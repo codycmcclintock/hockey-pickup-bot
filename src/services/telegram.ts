@@ -113,11 +113,28 @@ bot.command('buyspot', async (ctx) => {
       return;
     }
     
-    // Try to buy the first available spot
-    const targetSession = availableSessions[0];
-    await ctx.reply(`🎯 Attempting to buy spot for session ${targetSession.SessionId}...`);
+    // Try to buy spots until we find one we're not already registered for
+    let success = false;
+    for (const session of availableSessions) {
+      await ctx.reply(`🎯 Attempting to buy spot for session ${session.SessionId}...`);
+      
+      try {
+        await registerForSession(session.SessionId);
+        success = true;
+        break; // Success! Stop trying other sessions
+      } catch (error) {
+        if (error.message && error.message.includes('already on the roster')) {
+          await ctx.reply(`ℹ️ Already registered for session ${session.SessionId}, trying next...`);
+          continue; // Try next session
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
+    }
     
-    await registerForSession(targetSession.SessionId);
+    if (!success) {
+      await ctx.reply('❌ No available spots found (all sessions already registered)');
+    }
     
   } catch (error) {
     console.error('Error in buyspot command:', error);
