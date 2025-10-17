@@ -127,6 +127,8 @@ bot.command('buyspot', async (ctx) => {
     
     // Check if buy window is open for this specific session
     const sessionDate = new Date(nextTargetSession.SessionDate);
+    
+    // Calculate buy window date: session date minus BuyDayMinimum days
     const buyWindowDate = new Date(sessionDate);
     buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
     
@@ -136,7 +138,9 @@ bot.command('buyspot', async (ctx) => {
     
     // Debug logging
     console.log('Session Date:', sessionDate.toISOString());
-    console.log('Buy Window Date:', buyWindowDate.toISOString());
+    console.log('BuyDayMinimum:', nextTargetSession.BuyDayMinimum);
+    console.log('Buy Window Date (before time set):', new Date(sessionDate.getTime() - (nextTargetSession.BuyDayMinimum * 24 * 60 * 60 * 1000)).toISOString());
+    console.log('Buy Window Date (final):', buyWindowDate.toISOString());
     console.log('Current Time:', now.toISOString());
     console.log('Buy Window Open?', now >= buyWindowDate);
     
