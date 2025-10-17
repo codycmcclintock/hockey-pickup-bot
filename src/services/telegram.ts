@@ -94,19 +94,55 @@ bot.command('buyspot', async (ctx) => {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find sessions where buy window is open
-    const availableSessions = sessions.filter((session: Session) => {
+    // Find the NEXT Friday session (since today is Friday)
+    const currentDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    let targetDay: number;
+    let targetDayName: string;
+    
+    if (currentDay === 3) { // Wednesday
+      targetDay = 3; // Target next Wednesday
+      targetDayName = 'Wednesday';
+    } else { // Any other day (including Friday)
+      targetDay = 5; // Target next Friday
+      targetDayName = 'Friday';
+    }
+    
+    // Find sessions for the target day
+    const targetSessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const buyWindowDate = new Date(sessionDate);
-      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
-      buyWindowDate.setHours(9, 25, 0, 0);
-      
-      // Buy window is open if current time is past 9:25 AM on buy day
-      const isBuyWindowOpen = now >= buyWindowDate;
+      const dayOfWeek = sessionDate.getDay();
+      const isTargetDay = dayOfWeek === targetDay;
       const isFutureSession = sessionDate > now;
-      
-      return isBuyWindowOpen && isFutureSession;
+      return isTargetDay && isFutureSession;
     });
+    
+    // Sort by date and get the NEXT session of target day
+    targetSessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
+    const nextTargetSession = targetSessions[0];
+    
+    if (!nextTargetSession) {
+      await ctx.reply(`❌ No ${targetDayName} sessions found`);
+      return;
+    }
+    
+    // Check if buy window is open for this specific session
+    const sessionDate = new Date(nextTargetSession.SessionDate);
+    const buyWindowDate = new Date(sessionDate);
+    buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
+    buyWindowDate.setHours(9, 25, 0, 0);
+    
+    const isBuyWindowOpen = now >= buyWindowDate;
+    
+    await ctx.reply(`🎯 Next ${targetDayName} session: ${sessionDate.toLocaleDateString()} (ID: ${nextTargetSession.SessionId})`);
+    await ctx.reply(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
+    await ctx.reply(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
+    
+    if (!isBuyWindowOpen) {
+      await ctx.reply('❌ Buy window is not open yet');
+      return;
+    }
+    
+    const availableSessions = [nextTargetSession];
     
     if (availableSessions.length === 0) {
       await ctx.reply('❌ No spots available right now');
