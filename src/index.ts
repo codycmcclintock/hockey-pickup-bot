@@ -186,6 +186,7 @@ cron.schedule('* * * * *', async () => {
     console.log(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
     console.log(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
     
+    // If buy window is open, ALWAYS attempt to buy (let the API tell us if spot is available)
     const availableSessions = isBuyWindowOpen ? [nextTargetSession] : [];
     
     if (availableSessions.length > 0) {
