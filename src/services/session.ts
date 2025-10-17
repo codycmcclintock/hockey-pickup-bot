@@ -21,6 +21,8 @@ export interface SessionDetails {
   CurrentRoster?: any[];
   MaxPlayers?: number;
   AvailableSpots?: number;
+  IsUserRegistered?: boolean;
+  CanUserBuy?: boolean;
 }
 
 // Disable SSL verification for local development
@@ -210,8 +212,11 @@ export const getSessionDetails = async (sessionId: number): Promise<SessionDetai
               UserId
               FirstName
               LastName
+              Email
             }
             MaxPlayers
+            IsUserRegistered
+            CanUserBuy
           }
         }
       `,
@@ -251,16 +256,33 @@ export const canBuySpot = async (sessionId: number): Promise<boolean> => {
       return false;
     }
     
-    // Check if there are available spots
-    const hasAvailableSpots = (sessionDetails.AvailableSpots || 0) > 0;
+    // Use API's built-in fields if available
+    if (sessionDetails.IsUserRegistered !== undefined) {
+      console.log('Session details (API fields):', {
+        sessionId,
+        isUserRegistered: sessionDetails.IsUserRegistered,
+        canUserBuy: sessionDetails.CanUserBuy,
+        maxPlayers: sessionDetails.MaxPlayers,
+        rosterCount: sessionDetails.CurrentRoster?.length || 0
+      });
+      
+      // If API provides CanUserBuy field, use it directly
+      if (sessionDetails.CanUserBuy !== undefined) {
+        return sessionDetails.CanUserBuy;
+      }
+      
+      // Otherwise, use IsUserRegistered field
+      return !sessionDetails.IsUserRegistered;
+    }
     
-    // Check if current user is already on roster
+    // Fallback to manual calculation if API fields not available
+    const hasAvailableSpots = (sessionDetails.AvailableSpots || 0) > 0;
     const currentUserEmail = process.env.USER_EMAIL;
     const isAlreadyRegistered = sessionDetails.CurrentRoster?.some((player: any) => 
       player.Email === currentUserEmail || player.UserId === currentUserEmail
     ) || false;
     
-    console.log('Session details:', {
+    console.log('Session details (fallback):', {
       sessionId,
       availableSpots: sessionDetails.AvailableSpots,
       maxPlayers: sessionDetails.MaxPlayers,
