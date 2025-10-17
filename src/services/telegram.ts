@@ -217,10 +217,10 @@ bot.hears(/^[0-9]+$/, async (ctx) => {
   await ctx.reply(message, { parse_mode: 'Markdown' });
 });
 
-// Handle "yes" responses
 // Add immediateRegistration to global state
 declare global {
   var immediateRegistration: boolean;
+  var pendingConfirmation: number | undefined;
 }
 global.immediateRegistration = false;
 

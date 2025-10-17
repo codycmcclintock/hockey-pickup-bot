@@ -71,6 +71,18 @@ TELEGRAM_CHAT_ID=your_chat_id
    yarn start
    ```
 
+## Testing
+
+The project includes comprehensive unit and integration tests. See [TESTING.md](./TESTING.md) for detailed testing information.
+
+### Quick Test Commands
+```bash
+npm test                 # Run all tests
+npm run test:watch      # Run tests in watch mode
+npm run test:coverage   # Run tests with coverage report
+npm run test:ci         # Run tests for CI/CD
+```
+
 ## Commands
 
 - `/sessions` - View upcoming sessions

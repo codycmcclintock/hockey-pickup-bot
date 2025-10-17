@@ -1,7 +1,7 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
+import { config } from 'dotenv';
 
-dotenv.config();
+config();
 
 // Create axios instance
 const api = axios.create({
