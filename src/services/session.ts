@@ -203,63 +203,16 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
     console.log('Response status:', response.status);
     console.log('Response data:', JSON.stringify(response.data, null, 2));
 
-    // Always echo the API response message to the user
-    if (response.data.Message) {
-      await sendMessage(`ℹ️ API Response: ${response.data.Message}`, true);
+    // Simple success notification
+    if (response.data.Success) {
+      await sendMessage('Hockey Spot Purchased');
+    } else {
+      await sendMessage('❌ Registration Failed');
     }
-
-    // Send the registration result message (with debug info if needed)
-    const debugInfo = [
-      response.data.Success ? '✅ Registration Successful!' : '❌ Registration Failed!',
-      '',
-      response.data.Message ? `Message: ${response.data.Message}` : '',
-      '',
-      'Debug Info:',
-      `• Session ID: ${sessionId}`,
-      `• API URL: ${process.env.API_URL}/BuySell/buy`,
-      `• Token Present: ${!!token}`,
-      `• Response Status: ${response.status}`,
-      '',
-      'Technical Details:',
-      JSON.stringify(response.data, null, 2)
-    ].join('\n');
-    
-    await sendMessage(debugInfo, true);
 
     if (!response.data.Success) {
       return;
     }
-
-    // Get session details for payment links
-    const sessions = await getAllSessions();
-    const session = sessions.find(s => s.SessionId === sessionId);
-    
-    if (!session) {
-      console.error('Session not found:', sessionId);
-      return;
-    }
-
-    // Get payment links with markdown formatting
-    const sessionDate = new Date(session.SessionDate).toLocaleDateString();
-    const paymentLinks = [
-      `💳 [Pay with Venmo](https://venmo.com/codymcclintock?txn=pay&note=Hockey%20Session%20${sessionDate}&amount=${session.Cost})`,
-      `💲 [Pay with Cash App](https://cash.app/$codymcclintock/${session.Cost}?note=Hockey%20Session%20${sessionDate})`,
-      `💱 [Pay with PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=codymcclintock41@gmail.com&amount=${session.Cost}&item_name=Hockey%20Session%20${sessionDate}&currency_code=USD)`
-    ];
-
-    await sendMessage(`✅ Successfully registered for session ${sessionId}!`, true);
-    // Notify channel if configured
-    if (process.env.TELEGRAM_CHANNEL_ID) {
-      await sendMessage(`Cody used the bot to buy a spot.`, process.env.TELEGRAM_CHANNEL_ID, false);
-    }
-
-    const message = [
-      '',
-      '💰 Payment Options:',
-      ...paymentLinks
-    ].join('\n');
-
-    await sendMessage(message, true);
   } catch (error: any) {
     console.error('Error registering for session:', error);
     const errorDetails = [
