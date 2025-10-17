@@ -140,25 +140,37 @@ cron.schedule('* * * * *', async () => {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find sessions that are available for immediate purchase
-    const availableSessions = sessions.filter((session: Session) => {
+    // Find the NEXT Friday session (closest Friday in the future)
+    const fridaySessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const buyWindowDate = new Date(sessionDate);
-      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
-      buyWindowDate.setHours(9, 25, 0, 0);
-      
-      // Check if buy window is open (past 9:25 AM on buy day)
-      const isBuyWindowOpen = now >= buyWindowDate;
-      
-      // Check if it's a Wednesday or Friday session
       const dayOfWeek = sessionDate.getDay();
-      const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
-      
-      // Check if session is in the future
+      const isFriday = dayOfWeek === 5; // Friday
       const isFutureSession = sessionDate > now;
-      
-      return isBuyWindowOpen && isWedOrFri && isFutureSession;
+      return isFriday && isFutureSession;
     });
+    
+    // Sort by date and get the NEXT Friday (closest one)
+    fridaySessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
+    const nextFridaySession = fridaySessions[0];
+    
+    if (!nextFridaySession) {
+      console.log('ℹ️ No Friday sessions found');
+      return;
+    }
+    
+    const sessionDate = new Date(nextFridaySession.SessionDate);
+    const buyWindowDate = new Date(sessionDate);
+    buyWindowDate.setDate(buyWindowDate.getDate() - nextFridaySession.BuyDayMinimum);
+    buyWindowDate.setHours(9, 25, 0, 0);
+    
+    // Check if buy window is open (past 9:25 AM on buy day)
+    const isBuyWindowOpen = now >= buyWindowDate;
+    
+    console.log(`🎯 Next Friday session: ${sessionDate.toLocaleDateString()} (ID: ${nextFridaySession.SessionId})`);
+    console.log(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
+    console.log(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
+    
+    const availableSessions = isBuyWindowOpen ? [nextFridaySession] : [];
     
     if (availableSessions.length > 0) {
       console.log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
