@@ -129,7 +129,9 @@ bot.command('buyspot', async (ctx) => {
     const sessionDate = new Date(nextTargetSession.SessionDate);
     const buyWindowDate = new Date(sessionDate);
     buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
-    buyWindowDate.setHours(9, 25, 0, 0);
+    
+    // Set buy window to 9:25 AM PST (17:25 UTC)
+    buyWindowDate.setUTCHours(17, 25, 0, 0);
     
     const isBuyWindowOpen = now >= buyWindowDate;
     
@@ -407,6 +409,14 @@ bot.on('text', (ctx) => {
 export const startBot = async (): Promise<void> => {
   console.log('Starting bot with token:', process.env.TELEGRAM_BOT_TOKEN?.slice(0, 5) + '...');
   console.log('Chat ID:', process.env.TELEGRAM_CHAT_ID);
+
+  // Set up bot commands menu
+  await bot.telegram.setMyCommands([
+    { command: 'buyspot', description: 'Buy available spot immediately' },
+    { command: 'sessions', description: 'View upcoming hockey sessions' },
+    { command: 'status', description: 'Check registration status' },
+    { command: 'help', description: 'Show all commands' }
+  ]);
 
   // Add error handler
   bot.catch((err) => {
