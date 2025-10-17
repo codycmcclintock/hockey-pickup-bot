@@ -122,6 +122,53 @@ cron.schedule('*/5 * * * * *', async () => {
   }
 });
 
+// Check for available spots every minute (immediate registration)
+cron.schedule('* * * * *', async () => {
+  try {
+    log('🔍 Checking for available spots...');
+    const sessions = await getAllSessions();
+    const now = new Date();
+    
+    // Find sessions that are available for immediate purchase
+    const availableSessions = sessions.filter((session: Session) => {
+      const sessionDate = new Date(session.SessionDate);
+      const buyWindowDate = new Date(sessionDate);
+      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      buyWindowDate.setHours(9, 25, 0, 0);
+      
+      // Check if buy window is open (past 9:25 AM on buy day)
+      const isBuyWindowOpen = now >= buyWindowDate;
+      
+      // Check if it's a Wednesday or Friday session
+      const dayOfWeek = sessionDate.getDay();
+      const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
+      
+      // Check if session is in the future
+      const isFutureSession = sessionDate > now;
+      
+      return isBuyWindowOpen && isWedOrFri && isFutureSession;
+    });
+    
+    if (availableSessions.length > 0) {
+      log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
+      
+      for (const session of availableSessions) {
+        log(`🏒 Attempting to buy spot for session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
+        try {
+          await registerForSession(session.SessionId);
+          log(`✅ Successfully bought spot for session ${session.SessionId}`);
+        } catch (error) {
+          log(`❌ Failed to buy spot for session ${session.SessionId}: ${error.message}`);
+        }
+      }
+    } else {
+      log('ℹ️ No available spots found');
+    }
+  } catch (error) {
+    log(`❌ Error checking for available spots: ${error.message}`);
+  }
+});
+
 // Daily status check at 8 AM
 cron.schedule('0 8 * * *', () => {
   const pendingCount = global.pendingRegistrations ? Object.keys(global.pendingRegistrations).length : 0;
