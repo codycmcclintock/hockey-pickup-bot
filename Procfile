@@ -1,1 +1,1 @@
-worker: npm run auto-register
+worker: npm start
