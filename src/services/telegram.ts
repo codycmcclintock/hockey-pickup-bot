@@ -130,8 +130,15 @@ bot.command('buyspot', async (ctx) => {
     const buyWindowDate = new Date(sessionDate);
     buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
     
-    // Set buy window to 9:25 AM PST (17:25 UTC)
+    // Set buy window to 9:25 AM PST
+    // PST is UTC-8, so 9:25 AM PST = 17:25 UTC
     buyWindowDate.setUTCHours(17, 25, 0, 0);
+    
+    // Debug logging
+    console.log('Session Date:', sessionDate.toISOString());
+    console.log('Buy Window Date:', buyWindowDate.toISOString());
+    console.log('Current Time:', now.toISOString());
+    console.log('Buy Window Open?', now >= buyWindowDate);
     
     const isBuyWindowOpen = now >= buyWindowDate;
     
@@ -411,12 +418,17 @@ export const startBot = async (): Promise<void> => {
   console.log('Chat ID:', process.env.TELEGRAM_CHAT_ID);
 
   // Set up bot commands menu
-  await bot.telegram.setMyCommands([
-    { command: 'buyspot', description: 'Buy available spot immediately' },
-    { command: 'sessions', description: 'View upcoming hockey sessions' },
-    { command: 'status', description: 'Check registration status' },
-    { command: 'help', description: 'Show all commands' }
-  ]);
+  try {
+    await bot.telegram.setMyCommands([
+      { command: 'buyspot', description: 'Buy available spot immediately' },
+      { command: 'sessions', description: 'View upcoming hockey sessions' },
+      { command: 'status', description: 'Check registration status' },
+      { command: 'help', description: 'Show all commands' }
+    ]);
+    console.log('✅ Bot commands menu set successfully');
+  } catch (error) {
+    console.error('❌ Failed to set bot commands:', error);
+  }
 
   // Add error handler
   bot.catch((err) => {
