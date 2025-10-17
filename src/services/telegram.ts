@@ -1,7 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { getAllSessions, registerForSession, Session } from './session';
-import { addPendingRegistrationPg } from './pendingRegistrationStorePg';
-import { scheduleAllPendingRegistrations, scheduleRegistrationJob } from './pendingRegistrationScheduler';
+// Removed database dependencies for Heroku deployment
 import dotenv from 'dotenv';
 import fs from 'fs';
 
@@ -291,16 +290,7 @@ bot.hears(['yes', 'Yes', 'YES'], async (ctx) => {
   buyWindowDate.setDate(buyWindowDate.getDate() - selectedSession.BuyDayMinimum);
   buyWindowDate.setHours(9, 24, 0, 0);
 
-  // Save to persistent Postgres DB
-  const reg = {
-    sessionId: selectedSession.SessionId,
-    sessionDate: selectedSession.SessionDate,
-    buyWindowDate: buyWindowDate.toISOString(),
-    cost: selectedSession.Cost,
-    userId: ctx.message.from.id
-  };
-  await addPendingRegistrationPg(reg);
-  scheduleRegistrationJob(reg);
+  // Database storage removed for Heroku deployment
 
   // Set to 7:30 AM PST
   sessionDate.setUTCHours(14, 30, 0, 0); // 14:30 UTC = 7:30 AM PST
@@ -388,6 +378,5 @@ export const startBot = async (): Promise<void> => {
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-  // Schedule all pending registration jobs on startup
-  await scheduleAllPendingRegistrations();
+  // Database scheduling removed for Heroku deployment
 };
