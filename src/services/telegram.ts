@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { getAllSessions, registerForSession } from './session';
+import { getAllSessions, registerForSession, Session } from './session';
 import { addPendingRegistrationPg } from './pendingRegistrationStorePg';
 import { scheduleAllPendingRegistrations, scheduleRegistrationJob } from './pendingRegistrationScheduler';
 import dotenv from 'dotenv';
@@ -87,19 +87,56 @@ bot.command('start', async (ctx) => {
   fs.writeFileSync('.env', fs.readFileSync('.env', 'utf-8').replace(/TELEGRAM_CHAT_ID=.*/, `TELEGRAM_CHAT_ID=${chatId}`));
 });
 
+// Buy spot command - immediately attempt to buy any available spot
+bot.command('buyspot', async (ctx) => {
+  await ctx.reply('🔍 Looking for available spots...');
+  
+  try {
+    const sessions = await getAllSessions();
+    const now = new Date();
+    
+    // Find sessions where buy window is open
+    const availableSessions = sessions.filter((session: Session) => {
+      const sessionDate = new Date(session.SessionDate);
+      const buyWindowDate = new Date(sessionDate);
+      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      buyWindowDate.setHours(9, 25, 0, 0);
+      
+      // Buy window is open if current time is past 9:25 AM on buy day
+      const isBuyWindowOpen = now >= buyWindowDate;
+      const isFutureSession = sessionDate > now;
+      
+      return isBuyWindowOpen && isFutureSession;
+    });
+    
+    if (availableSessions.length === 0) {
+      await ctx.reply('❌ No spots available right now');
+      return;
+    }
+    
+    // Try to buy the first available spot
+    const targetSession = availableSessions[0];
+    await ctx.reply(`🎯 Attempting to buy spot for session ${targetSession.SessionId}...`);
+    
+    await registerForSession(targetSession.SessionId);
+    
+  } catch (error) {
+    console.error('Error in buyspot command:', error);
+    await ctx.reply(`❌ Error: ${error.message}`);
+  }
+});
+
 // Help command
 bot.command('help', async (ctx) => {
   const helpMessage = [
     '🏒 Hockey Pickup Bot Help\n',
     'Commands:',
+    '• /buyspot - Buy available spot immediately',
     '• /sessions - View upcoming hockey sessions',
     '• /status - Check your registration status',
     '• /help - Show this help message\n',
-    'How to use:',
-    '1. Use /sessions to see upcoming games',
-    '2. Select a session by its number',
-    '3. Confirm with "yes" to auto-register',
-    '4. I\'ll register you when the buy window opens!\n',
+    'Quick Buy:',
+    'Just type /buyspot to instantly buy any available spot!\n',
     'Need help? Contact @codymcclintock'
   ].join('\n');
 

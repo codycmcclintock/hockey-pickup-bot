@@ -133,61 +133,26 @@ cron.schedule('*/5 * * * * *', async () => {
   }
 });
 
-// Check for available spots every minute (immediate registration)
-cron.schedule('* * * * *', async () => {
+// Simple: Only check at 9:25 AM PST on Wednesday and Friday for buy windows
+cron.schedule('25 9 * * 3,5', async () => {
   try {
-    console.log('🔍 Checking for available spots...');
+    console.log('🕘 9:25 AM PST - Checking for buy windows...');
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Determine which day to target based on current day
-    const currentDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-    let targetDay: number;
-    let targetDayName: string;
-    
-    if (currentDay === 3) { // Wednesday
-      targetDay = 3; // Target next Wednesday
-      targetDayName = 'Wednesday';
-    } else { // Any other day (including Friday)
-      targetDay = 5; // Target next Friday
-      targetDayName = 'Friday';
-    }
-    
-    console.log(`📅 Current day: ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDay]}`);
-    console.log(`🎯 Targeting next ${targetDayName} session`);
-    
-    // Find sessions for the target day
-    const targetSessions = sessions.filter((session: Session) => {
+    // Find sessions where buy window just opened
+    const availableSessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const dayOfWeek = sessionDate.getDay();
-      const isTargetDay = dayOfWeek === targetDay;
+      const buyWindowDate = new Date(sessionDate);
+      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      buyWindowDate.setHours(9, 25, 0, 0);
+      
+      // Buy window is open if current time is past 9:25 AM on buy day
+      const isBuyWindowOpen = now >= buyWindowDate;
       const isFutureSession = sessionDate > now;
-      return isTargetDay && isFutureSession;
+      
+      return isBuyWindowOpen && isFutureSession;
     });
-    
-    // Sort by date and get the NEXT session of target day
-    targetSessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
-    const nextTargetSession = targetSessions[0];
-    
-    if (!nextTargetSession) {
-      console.log(`ℹ️ No ${targetDayName} sessions found`);
-      return;
-    }
-    
-    const sessionDate = new Date(nextTargetSession.SessionDate);
-    const buyWindowDate = new Date(sessionDate);
-    buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
-    buyWindowDate.setHours(9, 25, 0, 0);
-    
-    // Check if buy window is open (past 9:25 AM on buy day)
-    const isBuyWindowOpen = now >= buyWindowDate;
-    
-    console.log(`🎯 Next ${targetDayName} session: ${sessionDate.toLocaleDateString()} (ID: ${nextTargetSession.SessionId})`);
-    console.log(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
-    console.log(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
-    
-    // If buy window is open, ALWAYS attempt to buy (let the API tell us if spot is available)
-    const availableSessions = isBuyWindowOpen ? [nextTargetSession] : [];
     
     if (availableSessions.length > 0) {
       console.log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
@@ -202,10 +167,10 @@ cron.schedule('* * * * *', async () => {
         }
       }
     } else {
-      console.log('ℹ️ No available spots found');
+      console.log('ℹ️ No buy windows open right now');
     }
   } catch (error) {
-    console.error(`❌ Error checking for available spots:`, error);
+    console.error(`❌ Error checking for buy windows:`, error);
   }
 });
 

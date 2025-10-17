@@ -4,7 +4,7 @@ import { sendMessage } from './telegram';
 
 
 
-interface Session {
+export interface Session {
   SessionId: number;
   SessionDate: string;
   Note: string;
