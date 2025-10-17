@@ -1,4 +1,4 @@
-import { getAllSessions, registerForSession } from './services/session';
+import { getAllSessions, registerForSession, canBuySpot } from './services/session';
 import * as cron from 'node-cron';
 
 // Define types for global state
@@ -125,41 +125,44 @@ cron.schedule('*/5 * * * * *', async () => {
 // Simple: Only check at 9:25 AM PST on Wednesday and Friday for buy windows
 cron.schedule('25 9 * * 3,5', async () => {
   try {
-    log('🕘 9:25 AM PST - Checking for buy windows...');
+    log('🕘 9:25 AM PST - Checking for available spots...');
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find sessions where buy window just opened
-    const availableSessions = sessions.filter((session: Session) => {
+    // Find Wednesday and Friday sessions
+    const wednesdayFridaySessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const buyWindowDate = new Date(sessionDate);
-      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
-      buyWindowDate.setHours(9, 25, 0, 0);
-      
-      // Buy window is open if current time is past 9:25 AM on buy day
-      const isBuyWindowOpen = now >= buyWindowDate;
+      const dayOfWeek = sessionDate.getDay(); // 0=Sunday, 3=Wednesday, 5=Friday
       const isFutureSession = sessionDate > now;
       
-      return isBuyWindowOpen && isFutureSession;
+      return (dayOfWeek === 3 || dayOfWeek === 5) && isFutureSession;
     });
     
-    if (availableSessions.length > 0) {
-      log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
+    if (wednesdayFridaySessions.length > 0) {
+      log(`🎯 Found ${wednesdayFridaySessions.length} Wednesday/Friday sessions! Checking availability...`);
       
-      for (const session of availableSessions) {
-        log(`🏒 Attempting to buy spot for session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
+      for (const session of wednesdayFridaySessions) {
+        log(`🏒 Checking session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
+        
         try {
-          await registerForSession(session.SessionId);
-          log(`✅ Successfully bought spot for session ${session.SessionId}`);
+          const canBuy = await canBuySpot(session.SessionId);
+          
+          if (canBuy) {
+            log(`✅ Spot available for session ${session.SessionId}! Attempting to buy...`);
+            await registerForSession(session.SessionId);
+            log(`✅ Successfully bought spot for session ${session.SessionId}`);
+          } else {
+            log(`ℹ️ No spots available for session ${session.SessionId} (full or already registered)`);
+          }
         } catch (error) {
-          log(`❌ Failed to buy spot for session ${session.SessionId}: ${error.message}`);
+          log(`❌ Failed to check/buy spot for session ${session.SessionId}: ${error.message}`);
         }
       }
     } else {
-      log('ℹ️ No buy windows open right now');
+      log('ℹ️ No Wednesday/Friday sessions found');
     }
   } catch (error) {
-    log(`❌ Error checking for buy windows: ${error.message}`);
+    log(`❌ Error checking for available spots: ${error.message}`);
   }
 });
 

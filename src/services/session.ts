@@ -12,6 +12,17 @@ export interface Session {
   Cost: number;
 }
 
+export interface SessionDetails {
+  SessionId: number;
+  SessionDate: string;
+  Note: string;
+  BuyDayMinimum: number;
+  Cost: number;
+  CurrentRoster?: any[];
+  MaxPlayers?: number;
+  AvailableSpots?: number;
+}
+
 // Disable SSL verification for local development
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -172,6 +183,99 @@ export const formatSessionMessage = (session: Session): string => {
 `;
 };
 
+export const getSessionDetails = async (sessionId: number): Promise<SessionDetails | null> => {
+  try {
+    console.log('Getting session details for:', sessionId);
+    
+    const token = await login();
+    const api = axios.create({
+      baseURL: 'https://api.hockeypickup.com',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    const response = await api.post('/graphql', {
+      query: `
+        query GetSessionDetails($sessionId: Int!) {
+          Session(sessionId: $sessionId) {
+            SessionId
+            SessionDate
+            Note
+            BuyDayMinimum
+            Cost
+            CurrentRoster {
+              UserId
+              FirstName
+              LastName
+            }
+            MaxPlayers
+          }
+        }
+      `,
+      variables: {
+        sessionId: sessionId
+      }
+    });
+    
+    if (!response.data || !response.data.data || !response.data.data.Session) {
+      console.error('No session data found for ID:', sessionId);
+      return null;
+    }
+    
+    const session = response.data.data.Session;
+    const currentRoster = session.CurrentRoster || [];
+    const maxPlayers = session.MaxPlayers || 20; // Default to 20 if not specified
+    const availableSpots = maxPlayers - currentRoster.length;
+    
+    return {
+      ...session,
+      CurrentRoster: currentRoster,
+      MaxPlayers: maxPlayers,
+      AvailableSpots: availableSpots
+    };
+  } catch (error) {
+    console.error('Error getting session details:', error);
+    return null;
+  }
+};
+
+export const canBuySpot = async (sessionId: number): Promise<boolean> => {
+  try {
+    const sessionDetails = await getSessionDetails(sessionId);
+    
+    if (!sessionDetails) {
+      console.log('No session details found for ID:', sessionId);
+      return false;
+    }
+    
+    // Check if there are available spots
+    const hasAvailableSpots = (sessionDetails.AvailableSpots || 0) > 0;
+    
+    // Check if current user is already on roster
+    const currentUserEmail = process.env.USER_EMAIL;
+    const isAlreadyRegistered = sessionDetails.CurrentRoster?.some((player: any) => 
+      player.Email === currentUserEmail || player.UserId === currentUserEmail
+    ) || false;
+    
+    console.log('Session details:', {
+      sessionId,
+      availableSpots: sessionDetails.AvailableSpots,
+      maxPlayers: sessionDetails.MaxPlayers,
+      rosterCount: sessionDetails.CurrentRoster?.length || 0,
+      hasAvailableSpots,
+      isAlreadyRegistered
+    });
+    
+    return hasAvailableSpots && !isAlreadyRegistered;
+  } catch (error) {
+    console.error('Error checking if can buy spot:', error);
+    return false;
+  }
+};
+
 export const registerForSession = async (sessionId: number): Promise<void> => {
   await sendMessage('🟡 Trying to secure your spot for this session...', false);
   try {
@@ -215,20 +319,7 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
     }
   } catch (error: any) {
     console.error('Error registering for session:', error);
-    const errorDetails = [
-      '',
-      'Debug Info:',
-      `• Session ID: ${sessionId}`,
-      `• API URL: https://localhost:7042/BuySell/buy`,
-      `• Error Type: ${error.name}`,
-      '',
-      'Technical Details:',
-      '```',
-      error.response ? 
-        `Status: ${error.response.status}\nData: ${JSON.stringify(error.response.data, null, 2)}` :
-        `Error: ${error.message}\nStack: ${error.stack}`,
-      '```'
-    ].join('\n');
-    await sendMessage(`❌ Registration failed!${errorDetails}`, true);
+    const errorMessage = error.response?.data?.Message || error.message || 'Unknown error';
+    await sendMessage(`❌ Registration Failed: ${errorMessage}`);
   }
 };

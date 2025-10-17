@@ -1,5 +1,5 @@
 import { startBot, sendMessage } from './services/telegram';
-import { getAllSessions, registerForSession } from './services/session';
+import { getAllSessions, registerForSession, canBuySpot } from './services/session';
 import cron from 'node-cron';
 
 interface Session {
@@ -136,41 +136,44 @@ cron.schedule('*/5 * * * * *', async () => {
 // Simple: Only check at 9:25 AM PST on Wednesday and Friday for buy windows
 cron.schedule('25 9 * * 3,5', async () => {
   try {
-    console.log('🕘 9:25 AM PST - Checking for buy windows...');
+    console.log('🕘 9:25 AM PST - Checking for available spots...');
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find sessions where buy window just opened
-    const availableSessions = sessions.filter((session: Session) => {
+    // Find Wednesday and Friday sessions
+    const wednesdayFridaySessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const buyWindowDate = new Date(sessionDate);
-      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
-      buyWindowDate.setHours(9, 25, 0, 0);
-      
-      // Buy window is open if current time is past 9:25 AM on buy day
-      const isBuyWindowOpen = now >= buyWindowDate;
+      const dayOfWeek = sessionDate.getDay(); // 0=Sunday, 3=Wednesday, 5=Friday
       const isFutureSession = sessionDate > now;
       
-      return isBuyWindowOpen && isFutureSession;
+      return (dayOfWeek === 3 || dayOfWeek === 5) && isFutureSession;
     });
     
-    if (availableSessions.length > 0) {
-      console.log(`🎯 Found ${availableSessions.length} available spots! Attempting to buy...`);
+    if (wednesdayFridaySessions.length > 0) {
+      console.log(`🎯 Found ${wednesdayFridaySessions.length} Wednesday/Friday sessions! Checking availability...`);
       
-      for (const session of availableSessions) {
-        console.log(`🏒 Attempting to buy spot for session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
+      for (const session of wednesdayFridaySessions) {
+        console.log(`🏒 Checking session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
+        
         try {
-          await registerForSession(session.SessionId);
-          console.log(`✅ Successfully bought spot for session ${session.SessionId}`);
+          const canBuy = await canBuySpot(session.SessionId);
+          
+          if (canBuy) {
+            console.log(`✅ Spot available for session ${session.SessionId}! Attempting to buy...`);
+            await registerForSession(session.SessionId);
+            console.log(`✅ Successfully bought spot for session ${session.SessionId}`);
+          } else {
+            console.log(`ℹ️ No spots available for session ${session.SessionId} (full or already registered)`);
+          }
         } catch (error) {
-          console.error(`❌ Failed to buy spot for session ${session.SessionId}:`, error);
+          console.error(`❌ Failed to check/buy spot for session ${session.SessionId}:`, error);
         }
       }
     } else {
-      console.log('ℹ️ No buy windows open right now');
+      console.log('ℹ️ No Wednesday/Friday sessions found');
     }
   } catch (error) {
-    console.error(`❌ Error checking for buy windows:`, error);
+    console.error(`❌ Error checking for available spots:`, error);
   }
 });
 

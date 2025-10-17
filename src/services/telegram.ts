@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { getAllSessions, registerForSession, Session } from './session';
+import { getAllSessions, registerForSession, canBuySpot, Session } from './session';
 // Removed database dependencies for Heroku deployment
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -125,65 +125,21 @@ bot.command('buyspot', async (ctx) => {
       return;
     }
     
-    // Check if buy window is open for this specific session
     const sessionDate = new Date(nextTargetSession.SessionDate);
-    
-    // Calculate buy window date: session date minus BuyDayMinimum days
-    const buyWindowDate = new Date(sessionDate);
-    buyWindowDate.setDate(buyWindowDate.getDate() - nextTargetSession.BuyDayMinimum);
-    
-    // Set buy window to 9:25 AM PST
-    // PST is UTC-8, so 9:25 AM PST = 17:25 UTC
-    buyWindowDate.setUTCHours(17, 25, 0, 0);
-    
-    // Debug logging
-    console.log('Session Date:', sessionDate.toISOString());
-    console.log('BuyDayMinimum:', nextTargetSession.BuyDayMinimum);
-    console.log('Buy Window Date (before time set):', new Date(sessionDate.getTime() - (nextTargetSession.BuyDayMinimum * 24 * 60 * 60 * 1000)).toISOString());
-    console.log('Buy Window Date (final):', buyWindowDate.toISOString());
-    console.log('Current Time:', now.toISOString());
-    console.log('Buy Window Open?', now >= buyWindowDate);
-    
-    const isBuyWindowOpen = now >= buyWindowDate;
-    
     await ctx.reply(`🎯 Next ${targetDayName} session: ${sessionDate.toLocaleDateString()} (ID: ${nextTargetSession.SessionId})`);
-    await ctx.reply(`⏰ Buy window opened: ${buyWindowDate.toLocaleString()}`);
-    await ctx.reply(`🕐 Buy window is ${isBuyWindowOpen ? 'OPEN' : 'CLOSED'}`);
     
-    if (!isBuyWindowOpen) {
-      await ctx.reply('❌ Buy window is not open yet');
+    // Check if we can buy a spot using the API
+    await ctx.reply('🔍 Checking if spot is available...');
+    const canBuy = await canBuySpot(nextTargetSession.SessionId);
+    
+    if (!canBuy) {
+      await ctx.reply('❌ No spots available (session full or already registered)');
       return;
     }
     
-    const availableSessions = [nextTargetSession];
-    
-    if (availableSessions.length === 0) {
-      await ctx.reply('❌ No spots available right now');
-      return;
-    }
-    
-    // Try to buy spots until we find one we're not already registered for
-    let success = false;
-    for (const session of availableSessions) {
-      await ctx.reply(`🎯 Attempting to buy spot for session ${session.SessionId}...`);
-      
-      try {
-        await registerForSession(session.SessionId);
-        success = true;
-        break; // Success! Stop trying other sessions
-      } catch (error) {
-        if (error.message && error.message.includes('already on the roster')) {
-          await ctx.reply(`ℹ️ Already registered for session ${session.SessionId}, trying next...`);
-          continue; // Try next session
-        } else {
-          throw error; // Re-throw other errors
-        }
-      }
-    }
-    
-    if (!success) {
-      await ctx.reply('❌ No available spots found (all sessions already registered)');
-    }
+    // Try to buy the spot
+    await ctx.reply(`🎯 Attempting to buy spot for session ${nextTargetSession.SessionId}...`);
+    await registerForSession(nextTargetSession.SessionId);
     
   } catch (error) {
     console.error('Error in buyspot command:', error);
