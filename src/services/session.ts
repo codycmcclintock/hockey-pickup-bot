@@ -320,7 +320,7 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
     // TeamAssignment is required by the API
     // 0 = None, 1 = Dark, 2 = Light
     // Create the buy request
-    const buyRequest = { sessionId };
+    const buyRequest = { sessionId, PaymentNote: "Let's play 🏒" };
 
     console.log('Request body:', JSON.stringify(buyRequest, null, 2));
 
@@ -331,7 +331,7 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
 
     // Simple success notification
     if (response.data.Success) {
-      await sendMessage('Hockey Spot Purchased');
+      await sendMessage(`You bought a spot! 🎉\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
     } else {
       await sendMessage('❌ Registration Failed');
     }
