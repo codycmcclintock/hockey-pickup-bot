@@ -93,22 +93,24 @@ bot.command('buyspot', async (ctx) => {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find the next Wed/Fri session that's 5-9 days out (next week's session)
-    const nextWeekSession = sessions.find((session: Session) => {
-      const sessionDate = new Date(session.SessionDate);
-      const dayOfWeek = sessionDate.getDay();
-      const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
-      
-      // Must be 5-9 days from now (next week's session)
-      const daysUntil = Math.round((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return isWedOrFri && daysUntil >= 5 && daysUntil <= 9;
-    });
+    // Filter Wed/Fri sessions 5-9 days out, then sort by date to get EARLIEST
+    const nextWeekSessions = sessions
+      .filter((session: Session) => {
+        const sessionDate = new Date(session.SessionDate);
+        const dayOfWeek = sessionDate.getDay();
+        const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
+        const daysUntil = Math.round((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return isWedOrFri && daysUntil >= 5 && daysUntil <= 9;
+      })
+      .sort((a: Session, b: Session) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
     
-    if (!nextWeekSession) {
+    if (nextWeekSessions.length === 0) {
       await ctx.reply('❌ No Wed/Fri session found for next week (5-9 days out)');
       return;
     }
     
+    // Get the EARLIEST session in range
+    const nextWeekSession = nextWeekSessions[0];
     const sessionDate = new Date(nextWeekSession.SessionDate);
     const dayName = sessionDate.getDay() === 3 ? 'Wednesday' : 'Friday';
     await ctx.reply(`🎯 Found next ${dayName}: ${sessionDate.toLocaleDateString()} (ID: ${nextWeekSession.SessionId})`);
