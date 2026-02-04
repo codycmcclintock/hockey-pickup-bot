@@ -86,36 +86,35 @@ bot.command('start', async (ctx) => {
   fs.writeFileSync('.env', fs.readFileSync('.env', 'utf-8').replace(/TELEGRAM_CHAT_ID=.*/, `TELEGRAM_CHAT_ID=${chatId}`));
 });
 
-// Buy spot command - immediately attempt to buy any available spot
+// Buy spot command - buy spot for next week's session (5-9 days out)
+// Matches the cron logic: Wed buys NEXT Wed, Fri buys NEXT Fri
 bot.command('buyspot', async (ctx) => {
   try {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find Wed/Fri sessions with OPEN buy windows (buy window = session date - BuyDayMinimum days)
-    const availableSessions = sessions.filter((session: Session) => {
+    // Find the next Wed/Fri session that's 5-9 days out (next week's session)
+    const nextWeekSession = sessions.find((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
       const dayOfWeek = sessionDate.getDay();
       const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
-      const isFutureSession = sessionDate > now;
       
-      // Check if buy window is open
-      const buyWindowDate = new Date(sessionDate);
-      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
-      const isBuyWindowOpen = now >= buyWindowDate;
-      
-      return isWedOrFri && isFutureSession && isBuyWindowOpen;
-    }).sort((a: Session, b: Session) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
+      // Must be 5-9 days from now (next week's session)
+      const daysUntil = Math.round((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return isWedOrFri && daysUntil >= 5 && daysUntil <= 9;
+    });
     
-    if (availableSessions.length === 0) {
-      await ctx.reply('❌ No sessions with open buy windows');
+    if (!nextWeekSession) {
+      await ctx.reply('❌ No Wed/Fri session found for next week (5-9 days out)');
       return;
     }
     
-    const nextSession = availableSessions[0];
+    const sessionDate = new Date(nextWeekSession.SessionDate);
+    const dayName = sessionDate.getDay() === 3 ? 'Wednesday' : 'Friday';
+    await ctx.reply(`🎯 Found next ${dayName}: ${sessionDate.toLocaleDateString()} (ID: ${nextWeekSession.SessionId})`);
     
-    // Try to register directly - the registerForSession function handles the Telegram messages
-    await registerForSession(nextSession.SessionId);
+    // Try to register
+    await registerForSession(nextWeekSession.SessionId);
     
   } catch (error: any) {
     console.error('Error in buyspot command:', error);
