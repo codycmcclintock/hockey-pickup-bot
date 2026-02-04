@@ -299,13 +299,9 @@ export const canBuySpot = async (sessionId: number): Promise<boolean> => {
 };
 
 export const registerForSession = async (sessionId: number): Promise<void> => {
-  await sendMessage('🟡 Trying to secure your spot for this session...', false);
   try {
     console.log('Starting registration process for session:', sessionId);
-
-    console.log('Getting auth token...');
     const token = await login();
-    console.log('Token received, length:', token.length);
     
     const api = axios.create({
       baseURL: 'https://api.hockeypickup.com',
@@ -315,33 +311,37 @@ export const registerForSession = async (sessionId: number): Promise<void> => {
       }
     });
 
-    console.log('Sending buy request for session:', sessionId);
-    
-    // TeamAssignment is required by the API
-    // 0 = None, 1 = Dark, 2 = Light
-    // Create the buy request
     const buyRequest = { sessionId, PaymentNote: "Let's play 🏒" };
-
-    console.log('Request body:', JSON.stringify(buyRequest, null, 2));
+    console.log('Sending buy request:', JSON.stringify(buyRequest));
 
     const response = await api.post('/BuySell/buy', buyRequest);
+    console.log('Response:', JSON.stringify(response.data));
 
-    console.log('Response status:', response.status);
-    console.log('Response data:', JSON.stringify(response.data, null, 2));
-
-    // Simple success notification
     if (response.data.Success) {
       await sendMessage(`You bought a spot! 🎉\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
     } else {
-      await sendMessage('❌ Registration Failed');
-    }
-
-    if (!response.data.Success) {
-      return;
+      const msg = response.data.Message || '';
+      if (msg.includes('already have an active Buy')) {
+        await sendMessage(`✅ You're already registered for this session\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
+      } else if (msg.includes('full') || msg.includes('sold out')) {
+        await sendMessage(`Session is full. Added to the queue.\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
+        // Add to pending registrations for retry
+        global.pendingRegistrations = global.pendingRegistrations || {};
+        global.pendingRegistrations[sessionId] = { sessionDate: new Date().toISOString(), buyWindowDate: new Date(), cost: 0 };
+      } else {
+        await sendMessage(`❌ ${msg || 'Registration failed'}`);
+      }
     }
   } catch (error: any) {
     console.error('Error registering for session:', error);
     const errorMessage = error.response?.data?.Message || error.message || 'Unknown error';
-    await sendMessage(`❌ Registration Failed: ${errorMessage}`);
+    
+    if (errorMessage.includes('already have an active Buy')) {
+      await sendMessage(`✅ You're already registered for this session\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
+    } else if (errorMessage.includes('full') || errorMessage.includes('sold out')) {
+      await sendMessage(`Session is full. Added to the queue.\n🔗 https://app.hockeypickup.com/session/${sessionId}`);
+    } else {
+      await sendMessage(`❌ ${errorMessage}`);
+    }
   }
 };

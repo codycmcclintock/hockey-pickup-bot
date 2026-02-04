@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { getAllSessions, registerForSession, canBuySpot, Session } from './session';
+import { getAllSessions, registerForSession, Session } from './session';
 // Removed database dependencies for Heroku deployment
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -88,60 +88,36 @@ bot.command('start', async (ctx) => {
 
 // Buy spot command - immediately attempt to buy any available spot
 bot.command('buyspot', async (ctx) => {
-  await ctx.reply('🔍 Looking for available spots...');
-  
   try {
     const sessions = await getAllSessions();
     const now = new Date();
     
-    // Find the NEXT Friday session (since today is Friday)
-    const currentDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-    let targetDay: number;
-    let targetDayName: string;
-    
-    if (currentDay === 3) { // Wednesday
-      targetDay = 3; // Target next Wednesday
-      targetDayName = 'Wednesday';
-    } else { // Any other day (including Friday)
-      targetDay = 5; // Target next Friday
-      targetDayName = 'Friday';
-    }
-    
-    // Find sessions for the target day
-    const targetSessions = sessions.filter((session: Session) => {
+    // Find Wed/Fri sessions with OPEN buy windows (buy window = session date - BuyDayMinimum days)
+    const availableSessions = sessions.filter((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
       const dayOfWeek = sessionDate.getDay();
-      const isTargetDay = dayOfWeek === targetDay;
+      const isWedOrFri = dayOfWeek === 3 || dayOfWeek === 5;
       const isFutureSession = sessionDate > now;
-      return isTargetDay && isFutureSession;
-    });
+      
+      // Check if buy window is open
+      const buyWindowDate = new Date(sessionDate);
+      buyWindowDate.setDate(buyWindowDate.getDate() - session.BuyDayMinimum);
+      const isBuyWindowOpen = now >= buyWindowDate;
+      
+      return isWedOrFri && isFutureSession && isBuyWindowOpen;
+    }).sort((a: Session, b: Session) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
     
-    // Sort by date and get the NEXT session of target day
-    targetSessions.sort((a, b) => new Date(a.SessionDate).getTime() - new Date(b.SessionDate).getTime());
-    const nextTargetSession = targetSessions[0];
-    
-    if (!nextTargetSession) {
-      await ctx.reply(`❌ No ${targetDayName} sessions found`);
+    if (availableSessions.length === 0) {
+      await ctx.reply('❌ No sessions with open buy windows');
       return;
     }
     
-    const sessionDate = new Date(nextTargetSession.SessionDate);
-    await ctx.reply(`🎯 Next ${targetDayName} session: ${sessionDate.toLocaleDateString()} (ID: ${nextTargetSession.SessionId})`);
+    const nextSession = availableSessions[0];
     
-    // Check if we can buy a spot using the API
-    await ctx.reply('🔍 Checking if spot is available...');
-    const canBuy = await canBuySpot(nextTargetSession.SessionId);
+    // Try to register directly - the registerForSession function handles the Telegram messages
+    await registerForSession(nextSession.SessionId);
     
-    if (!canBuy) {
-      await ctx.reply('❌ No spots available (session full or already registered)');
-      return;
-    }
-    
-    // Try to buy the spot
-    await ctx.reply(`🎯 Attempting to buy spot for session ${nextTargetSession.SessionId}...`);
-    await registerForSession(nextTargetSession.SessionId);
-    
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in buyspot command:', error);
     await ctx.reply(`❌ Error: ${error.message}`);
   }
