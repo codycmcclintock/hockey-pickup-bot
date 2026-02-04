@@ -1,5 +1,5 @@
 import { startBot, sendMessage } from './services/telegram';
-import { getAllSessions, registerForSession, canBuySpot } from './services/session';
+import { getAllSessions, registerForSession } from './services/session';
 import cron from 'node-cron';
 
 interface Session {
@@ -133,47 +133,52 @@ cron.schedule('*/5 * * * * *', async () => {
   }
 });
 
-// Simple: Only check at 9:25 AM PST on Wednesday and Friday for buy windows
+// Every Wednesday and Friday at 9:25 AM PST - buy spot for NEXT week's same day
+// Wed 9:25 AM → buy NEXT Wednesday (7 days out)
+// Fri 9:25 AM → buy NEXT Friday (7 days out)
 cron.schedule('25 9 * * 3,5', async () => {
   try {
-    console.log('🕘 9:25 AM PST - Checking for available spots...');
-    const sessions = await getAllSessions();
     const now = new Date();
+    const currentDay = now.getDay(); // 3=Wednesday, 5=Friday
+    const dayName = currentDay === 3 ? 'Wednesday' : 'Friday';
     
-    // Find Wednesday and Friday sessions
-    const wednesdayFridaySessions = sessions.filter((session: Session) => {
+    console.log(`🕘 9:25 AM PST ${dayName} - Looking for NEXT ${dayName} session...`);
+    
+    const sessions = await getAllSessions();
+    
+    // Find the NEXT session of the same day (7 days from now)
+    const targetDate = new Date(now);
+    targetDate.setDate(targetDate.getDate() + 7);
+    targetDate.setHours(0, 0, 0, 0);
+    
+    // Find session matching the target day (within a day tolerance)
+    const nextSession = sessions.find((session: Session) => {
       const sessionDate = new Date(session.SessionDate);
-      const dayOfWeek = sessionDate.getDay(); // 0=Sunday, 3=Wednesday, 5=Friday
-      const isFutureSession = sessionDate > now;
+      const dayOfWeek = sessionDate.getDay();
       
-      return (dayOfWeek === 3 || dayOfWeek === 5) && isFutureSession;
+      // Must be the same day of week (Wed or Fri)
+      if (dayOfWeek !== currentDay) return false;
+      
+      // Must be roughly 7 days from now (5-9 days to handle edge cases)
+      const daysUntil = Math.round((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil >= 5 && daysUntil <= 9;
     });
     
-    if (wednesdayFridaySessions.length > 0) {
-      console.log(`🎯 Found ${wednesdayFridaySessions.length} Wednesday/Friday sessions! Checking availability...`);
-      
-      for (const session of wednesdayFridaySessions) {
-        console.log(`🏒 Checking session ${session.SessionId} (${new Date(session.SessionDate).toLocaleDateString()})`);
-        
-        try {
-          const canBuy = await canBuySpot(session.SessionId);
-          
-          if (canBuy) {
-            console.log(`✅ Spot available for session ${session.SessionId}! Attempting to buy...`);
-            await registerForSession(session.SessionId);
-            console.log(`✅ Successfully bought spot for session ${session.SessionId}`);
-          } else {
-            console.log(`ℹ️ No spots available for session ${session.SessionId} (full or already registered)`);
-          }
-        } catch (error) {
-          console.error(`❌ Failed to check/buy spot for session ${session.SessionId}:`, error);
-        }
-      }
-    } else {
-      console.log('ℹ️ No Wednesday/Friday sessions found');
+    if (!nextSession) {
+      console.log(`❌ No ${dayName} session found for next week`);
+      await sendMessage(`❌ No ${dayName} session found for next week`);
+      return;
     }
-  } catch (error) {
-    console.error(`❌ Error checking for available spots:`, error);
+    
+    const sessionDate = new Date(nextSession.SessionDate);
+    console.log(`🎯 Found next ${dayName}: ${sessionDate.toLocaleDateString()} (ID: ${nextSession.SessionId})`);
+    
+    // Try to buy the spot
+    await registerForSession(nextSession.SessionId);
+    
+  } catch (error: any) {
+    console.error('❌ Error in auto-registration:', error);
+    await sendMessage(`❌ Auto-registration error: ${error.message}`);
   }
 });
 
